@@ -1,8 +1,43 @@
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+type ClassValue =
+  | string
+  | number
+  | null
+  | boolean
+  | undefined
+  | ClassValue[]
+  | { [key: string]: boolean | null | undefined };
+
+function toClassNames(value: ClassValue): string[] {
+  if (!value) return [];
+  if (typeof value === "string" || typeof value === "number") return [String(value)];
+  if (Array.isArray(value)) return value.flatMap(toClassNames);
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .filter(([, enabled]) => Boolean(enabled))
+      .map(([className]) => className);
+  }
+  return [];
+}
+
+function classGroupKey(className: string): string {
+  const parts = className.split(":");
+  const utility = parts.pop() ?? "";
+  const variants = parts.join(":");
+  const normalized = utility.startsWith("!") ? utility.slice(1) : utility;
+  const group = normalized.split("-")[0] ?? normalized;
+  return variants ? `${variants}:${group}` : group;
+}
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+  const merged = new Map<string, string>();
+
+  for (const className of inputs.flatMap(toClassNames)) {
+    const key = classGroupKey(className);
+    if (merged.has(key)) merged.delete(key);
+    merged.set(key, className);
+  }
+
+  return Array.from(merged.values()).join(" ");
 }
 
 export function formatNumber(num: number): string {
